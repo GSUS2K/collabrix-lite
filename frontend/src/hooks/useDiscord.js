@@ -47,32 +47,28 @@ export function useDiscord() {
                 response_type: 'code',
                 state: '',
                 prompt: 'none',
-                scope: ['identify']
+                scope: ['identify', 'email'],
             });
 
-            // Pass this code to our backend to exchange for an access token
+            // Exchange code for collabrix JWT via our backend
             const response = await fetch('/api/auth/discord/token', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code }),
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to exchange code');
-            }
+            if (!response.ok) throw new Error('Failed to exchange Discord code');
 
-            const { access_token } = await response.json();
+            const data = await response.json();
+            const { access_token, collabrix_token, user } = data;
 
-            const authResult = await discordSdk.commands.authenticate({
-                access_token
-            });
-
-            if (!authResult) throw new Error("Authenticate command failed");
+            // Authenticate with the Discord SDK using the access_token
+            const authResult = await discordSdk.commands.authenticate({ access_token });
+            if (!authResult) throw new Error('Discord SDK authenticate failed');
 
             setAuth(authResult);
-            return authResult;
+            // Return everything the AuthPage needs to log in
+            return { collabrix_token, user };
 
         } catch (err) {
             setError(err);

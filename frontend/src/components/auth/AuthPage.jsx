@@ -22,7 +22,7 @@ export default function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [wordIdx, setWordIdx] = useState(0);
   const [fading, setFading] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, loginWithDiscord } = useAuth();
   const { isReady, authenticate, error: discordError } = useDiscord();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -180,7 +180,6 @@ export default function AuthPage() {
             ))}
           </div>
 
-          { }
           <div className="flex gap-4 mb-8 relative z-10">
             <button
               type="button"
@@ -188,15 +187,12 @@ export default function AuthPage() {
                 if (!isReady) return toast.error("Discord SDK not ready yet");
                 try {
                   setLoading(true);
-                  const result = await authenticate();
-
-                  // After authenticating via the SDK, the backend sets the collabrix_token
-                  // in the exchange route. But the hook returns the SDK auth response.
-                  // Let's grab the token from our backend using the API directly as a refactor
-                  // For now, let's keep it simple: the SDK is authenticated. 
-                  // The easiest way is to push the SDK token back to the API for our own JWT.
+                  const { collabrix_token, user } = await authenticate();
+                  loginWithDiscord(collabrix_token, user);
+                  navigate('/dashboard');
                 } catch (err) {
-                  toast.error("Discord login failed");
+                  console.error('Discord login error:', err);
+                  toast.error("Discord login failed: " + (err.message || 'unknown error'));
                 } finally {
                   setLoading(false);
                 }

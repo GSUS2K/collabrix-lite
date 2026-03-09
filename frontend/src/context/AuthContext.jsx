@@ -23,6 +23,11 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  const loginWithDiscord = (token, userData) => {
+    localStorage.setItem('cc_token', token);
+    setUser(userData);
+  };
+
   const loginWithGoogle = async (credential) => {
     const { data } = await api.post('/api/auth/google', { credential });
     localStorage.setItem('cc_token', data.token);
@@ -43,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithDiscord, loginWithGoogle, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
