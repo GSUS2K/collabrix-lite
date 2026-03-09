@@ -27,11 +27,17 @@ export function useDiscord() {
     useEffect(() => {
         async function setupDiscord() {
             if (!clientId) {
-                setError(new Error("No Discord Client ID found"));
+                setError(new Error("No Discord Client ID found. Check VITE_DISCORD_CLIENT_ID env var."));
                 return;
             }
             try {
-                await discordSdk.ready();
+                // Add a timeout so ready() doesn't hang silently
+                await Promise.race([
+                    discordSdk.ready(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('SDK ready() timed out — check URL Mapping in Discord Developer Portal')), 6000)
+                    ),
+                ]);
                 setIsReady(true);
             } catch (err) {
                 setError(err);
