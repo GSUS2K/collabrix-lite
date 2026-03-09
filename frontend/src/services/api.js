@@ -2,8 +2,8 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
-  headers: { 'ngrok-skip-browser-warning': '1' },
 });
+
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('cc_token');
@@ -16,7 +16,8 @@ api.interceptors.response.use(
   err => {
     if (err.response?.status === 401) {
       localStorage.removeItem('cc_token');
-      window.location.href = '/auth';
+      // Use a custom event instead of window.location (which breaks Discord Activity iframe)
+      window.dispatchEvent(new CustomEvent('auth:logout'));
     }
     return Promise.reject(err);
   }

@@ -16,6 +16,13 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, []);
 
+  // Listen for 401 events from api.js (avoids window.location redirect in Discord iframe)
+  useEffect(() => {
+    const handler = () => { localStorage.removeItem('cc_token'); setUser(null); };
+    window.addEventListener('auth:logout', handler);
+    return () => window.removeEventListener('auth:logout', handler);
+  }, []);
+
   const login = async (email, password) => {
     const { data } = await api.post('/api/auth/login', { email, password });
     localStorage.setItem('cc_token', data.token);
