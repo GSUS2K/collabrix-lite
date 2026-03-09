@@ -1,0 +1,181 @@
+const { socketAuth } = require('../middleware/auth');
+const { initGameSocket } = require('./game');
+const Room = require('../models/Room');
+
+
+const roomUsers = new Map();
+
+const initSocket = (io) => {
+  io.use(socketAuth);
+
+  io.on('connection', (socket) => {
+    const { id: userId, username = 'User', color = '#00FFBF' } = socket.user;
+
+
+    socket.on('room:join', async ({ roomId, userColor }) => {
+      try {
+        socket.join(roomId);
+        socket.roomId = roomId;
+
+        if (!roomUsers.has(roomId)) roomUsers.set(roomId, new Map());
+        const users = roomUsers.get(roomId);
+        users.set(socket.id, { socketId: socket.id, username, color: userColor || color, isHost: false });
+
+
+        const room = await Room.findById(roomId);
+        if (!room) return socket.emit('error', { message: 'Room not found' });
+
+
+        const userEntry = users.get(socket.id);
+        if (room.host.toString() === userId) userEntry.isHost = true;
+        users.set(socket.id, userEntry);
+
+        const userList = Array.from(users.values());
+
+        socket.emit('room:joined', {
+          room: {
+            _id: room._id,
+            name: room.name,
+            code: room.code,
+            canvasData: room.canvasData,
+            stickyNotes: room.stickyNotes,
+            chatHistory: room.chatHistory.slice(-50),
+            settings: room.settings,
+          },
+          users: userList,
+          me: userEntry,
+        });
+
+        socket.to(roomId).emit('room:user_joined', {
+          user: userEntry,
+          users: userList,
+        });
+
+
+        await Room.findByIdAndUpdate(roomId, { lastActive: new Date() });
+      } catch (err) {
+        socket.emit('error', { message: err.message });
+      }
+    });
+
+
+    socket.on('room:leave', () => handleLeave(socket, io));
+    socket.on('disconnect', () => handleLeave(socket, io));
+
+
+    socket.on('draw:start', (data) => socket.to(data.roomId).emit('draw:start', data));
+    socket.on('draw:move', (data) => socket.to(data.roomId).emit('draw:move', data));
+    socket.on('draw:end', (data) => socket.to(data.roomId).emit('draw:end', data));
+
+    socket.on('draw:clear', ({ roomId }) => {
+      socket.to(roomId).emit('draw:clear');
+    });
+
+    socket.on('draw:undo', ({ roomId, snapshot }) => {
+      socket.to(roomId).emit('draw:undo', { snapshot });
+    });
+
+    socket.on('draw:redo', ({ roomId, snapshot }) => {
+      socket.to(roomId).emit('draw:redo', { snapshot });
+    });
+
+
+    socket.on('draw:sync', ({ roomId, canvasData }) => {
+      socket.to(roomId).emit('draw:sync_state', { canvasData });
+    });
+
+
+    socket.on('canvas:save', async ({ roomId, canvasData }) => {
+      try {
+        await Room.findByIdAndUpdate(roomId, { canvasData, lastActive: new Date() });
+      } catch { }
+    });
+
+
+    socket.on('cursor:move', (data) => socket.to(data.roomId).emit('cursor:move', data));
+
+
+    socket.on('chat:send', async ({ roomId, text }) => {
+      if (!text?.trim()) return;
+      const users = roomUsers.get(roomId);
+      const user = users?.get(socket.id);
+      const msg = {
+        username: user?.username || username,
+        text: text.trim().slice(0, 500),
+        color: user?.color || color,
+        type: 'message',
+        timestamp: new Date(),
+      };
+      io.to(roomId).emit('chat:message', msg);
+
+      try {
+        await Room.findByIdAndUpdate(roomId, {
+          $push: { chatHistory: { $each: [msg], $slice: -100 } },
+        });
+      } catch { }
+    });
+
+
+    socket.on('note:add', async ({ roomId, note }) => {
+      socket.to(roomId).emit('note:add', { note });
+      try { await Room.findByIdAndUpdate(roomId, { $push: { stickyNotes: note } }); } catch { }
+    });
+
+    socket.on('note:update', async ({ roomId, note }) => {
+      socket.to(roomId).emit('note:update', { note });
+      try {
+        await Room.findOneAndUpdate(
+          { _id: roomId, 'stickyNotes.id': note.id },
+          { $set: { 'stickyNotes.$': note } }
+        );
+      } catch { }
+    });
+
+    socket.on('note:delete', async ({ roomId, noteId }) => {
+      socket.to(roomId).emit('note:delete', { noteId });
+      try { await Room.findByIdAndUpdate(roomId, { $pull: { stickyNotes: { id: noteId } } }); } catch { }
+    });
+
+
+    socket.on('reaction:send', ({ roomId, emoji, x, y }) => {
+      io.to(roomId).emit('reaction:show', { emoji, x, y, username });
+    });
+
+
+    socket.on('settings:update', async ({ roomId, settings }) => {
+      const users = roomUsers.get(roomId);
+      const user = users?.get(socket.id);
+      if (!user?.isHost) return;
+      io.to(roomId).emit('settings:updated', { settings });
+      try { await Room.findByIdAndUpdate(roomId, { settings }); } catch { }
+    });
+
+
+    initGameSocket(io, socket, roomUsers);
+  });
+};
+
+async function handleLeave(socket, io) {
+  const roomId = socket.roomId;
+  if (!roomId) return;
+
+  const users = roomUsers.get(roomId);
+  if (!users) return;
+
+  const leaving = users.get(socket.id);
+  users.delete(socket.id);
+
+  if (users.size === 0) {
+    roomUsers.delete(roomId);
+  } else {
+    const userList = Array.from(users.values());
+    io.to(roomId).emit('room:user_left', {
+      username: leaving?.username || 'Someone',
+      users: userList,
+    });
+  }
+
+  socket.leave(roomId);
+}
+
+module.exports = { initSocket };
