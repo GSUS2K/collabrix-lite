@@ -3,10 +3,9 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
-// Empty URL = same origin (collabrix-lite.vercel.app)
-// Vercel's rewrites proxy /socket.io/* to Render backend
-// This ensures Discord Activity sandbox allows the connection (Vercel is in URL Mappings)
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+// Connect directly to Render — Vercel proxy doesn't work for socket.io
+// (Vercel rewrites return index.html for /socket.io/ requests)
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://collabrix-lite.onrender.com';
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
@@ -16,8 +15,7 @@ export const SocketProvider = ({ children }) => {
     const token = localStorage.getItem('cc_token');
     const s = io(SOCKET_URL, {
       auth: { token },
-      transports: ['polling'], // polling only — Vercel can't upgrade to WebSocket
-      path: '/socket.io/',
+      transports: ['polling', 'websocket'],
     });
 
     s.on('connect', () => setConnected(true));
