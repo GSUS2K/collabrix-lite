@@ -3,7 +3,8 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
+// Socket.IO must connect directly to Render — Vercel serverless can't upgrade WebSockets
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://collabrix-lite.onrender.com';
 
 export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
@@ -13,7 +14,7 @@ export const SocketProvider = ({ children }) => {
     const token = localStorage.getItem('cc_token');
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // polling first — Vercel works; upgrades to WS after
     });
 
     socket.on('connect', () => setConnected(true));
