@@ -23,9 +23,18 @@ export default function AuthPage() {
   const [wordIdx, setWordIdx] = useState(0);
   const [fading, setFading] = useState(false);
   const { login, register } = useAuth();
-  const { isReady, authenticate } = useDiscord();
+  const { isReady, authenticate, error: discordError } = useDiscord();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Debug: collect any runtime errors and show them visually inside Discord
+  const [debugErrors, setDebugErrors] = useState([]);
+  useEffect(() => {
+    const handler = (e) => setDebugErrors(prev => [...prev, e.message || String(e)]);
+    window.addEventListener('error', handler);
+    window.addEventListener('unhandledrejection', (e) => setDebugErrors(prev => [...prev, String(e.reason)]));
+    return () => window.removeEventListener('error', handler);
+  }, []);
 
 
 
@@ -62,15 +71,17 @@ export default function AuthPage() {
   return (
     <div className="relative min-h-screen font-sans bg-brand-dark">
 
-      { }
-      <div className="fixed inset-0 z-0 pointer-events-auto cursor-grab active:cursor-grabbing">
-        <Spline
-          // scene="https://prod.spline.design/xwqDYBialmxhQV28/scene.splinecode"
-          // scene="https://prod.spline.design/8h54p4oGm9FM39lk/scene.splinecode"
-          scene="https://prod.spline.design/j416K4JBUMnhtDpP/scene.splinecode"
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
+      {/* Debug overlay - shows errors visually inside Discord iframe */}
+      {(debugErrors.length > 0 || discordError) && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: '#ff000088', color: 'white', padding: '12px', fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
+          <strong>Debug Errors:</strong>
+          {discordError && <div>Discord: {discordError.message}</div>}
+          {debugErrors.map((e, i) => <div key={i}>{e}</div>)}
+        </div>
+      )}
+
+      {/* Spline disabled temporarily to isolate black screen in Discord */}
+      <div className="fixed inset-0 z-0" style={{ background: 'linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #0c0c0f 100%)' }} />
 
       { }
       <div className="fixed inset-0 z-10 pointer-events-none"
