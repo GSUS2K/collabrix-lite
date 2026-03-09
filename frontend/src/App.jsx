@@ -57,15 +57,25 @@ const DiscordAutoLogin = ({ children }) => {
     })();
   }, [loading, user, isReady, sdkError]);
 
-  // 8-second timeout fallback — if Discord never responds, bail out
+  // 8-second timeout — only triggers if we're truly stuck waiting for Discord
+  // Cancels itself if user resolves (logged in) before timeout fires
   useEffect(() => {
     if (!isInDiscord()) return;
+    if (user || !loading) {
+      // Already resolved — no need for a timeout
+      return;
+    }
     const t = setTimeout(() => {
-      setError('Discord timed out. Try closing and reopening the Activity.');
-      setDiscordLoading(false);
+      // Only set error if we're still waiting (not yet logged in)
+      setDiscordLoading(prev => {
+        if (prev) {
+          setError('Discord timed out. Try reopening the Activity.');
+        }
+        return false;
+      });
     }, 8000);
     return () => clearTimeout(t);
-  }, []);
+  }, [user, loading]);
 
   if (loading || (isInDiscord() && discordLoading && !error)) {
     return (
