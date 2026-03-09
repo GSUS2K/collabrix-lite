@@ -38,6 +38,15 @@ export function useDiscord() {
                         setTimeout(() => reject(new Error('SDK ready() timed out — check URL Mapping in Discord Developer Portal')), 6000)
                     ),
                 ]);
+
+                // Patch all XHR/fetch/WebSocket to route through Discord's proxy
+                // Requires URL Mapping in Discord Dev Portal: /backend → https://collabrix-lite.onrender.com
+                if (discordSdk.patchUrlMappings) {
+                    discordSdk.patchUrlMappings([
+                        { prefix: '/backend', target: 'https://collabrix-lite.onrender.com' },
+                    ]);
+                }
+
                 setIsReady(true);
             } catch (err) {
                 setError(err);
