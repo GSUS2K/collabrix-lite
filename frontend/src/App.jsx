@@ -28,18 +28,19 @@ const isInDiscord = () => {
 // Silent auto-login for Discord Activity — no auth page shown
 const DiscordAutoLogin = ({ children }) => {
   const { user, loading, loginWithDiscord } = useAuth();
-  const { isReady, authenticate } = useDiscord();
+  const { isReady, authenticate, error: sdkError } = useDiscord();
   const navigate = useNavigate();
   const [discordLoading, setDiscordLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (loading) return; // wait for AuthContext to finish loading
-    if (user) { setDiscordLoading(false); return; } // already logged in
+    if (loading) return;
+    if (user) { setDiscordLoading(false); return; }
+    if (!isInDiscord()) { setDiscordLoading(false); return; }
 
-    if (!isInDiscord()) { setDiscordLoading(false); return; } // not in Discord, show normal auth
+    // SDK failed to initialize — show error rather than hanging
+    if (sdkError) { setError(sdkError.message || 'Discord SDK error'); setDiscordLoading(false); return; }
 
-    // We're inside Discord — auto-login silently
     if (!isReady) return; // wait for SDK to be ready
 
     (async () => {
@@ -54,7 +55,17 @@ const DiscordAutoLogin = ({ children }) => {
         setDiscordLoading(false);
       }
     })();
-  }, [loading, user, isReady]);
+  }, [loading, user, isReady, sdkError]);
+
+  // 8-second timeout fallback — if Discord never responds, bail out
+  useEffect(() => {
+    if (!isInDiscord()) return;
+    const t = setTimeout(() => {
+      setError('Discord timed out. Try closing and reopening the Activity.');
+      setDiscordLoading(false);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, []);
 
   if (loading || (isInDiscord() && discordLoading && !error)) {
     return (
