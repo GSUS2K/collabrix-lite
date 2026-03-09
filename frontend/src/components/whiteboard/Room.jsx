@@ -45,6 +45,7 @@ export default function Room() {
   const [me, setMe] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [panel, setPanel] = useState('chat');
   const [showGame, setShowGame] = useState(false);
   const [gameLocked, setGameLocked] = useState(false);
@@ -100,6 +101,19 @@ export default function Room() {
     return () => window.removeEventListener('keydown', handler);
   }, [showGame]);
 
+
+  // Timeout: if room:joined never fires, show a diagnostic error
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (loading) {
+        const socketId = socket?.id || 'no socket';
+        const connected = socket?.connected;
+        setLoadError(`Timed out. socket=${socketId} connected=${connected} roomId=${roomId}`);
+        setLoading(false);
+      }
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [loading, socket, roomId]);
 
   useEffect(() => {
     if (!socket) return;
@@ -210,11 +224,22 @@ export default function Room() {
     toast.success('Room code copied!');
   };
 
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-dark text-white">
-        <div className="w-12 h-12 border-4 border-brand-accent/20 border-t-brand-accent rounded-full animate-spin mb-4" />
-        <p className="text-white/60 font-medium tracking-wide">Connecting to room...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-dark text-white gap-4 p-6">
+        {loadError ? (
+          <>
+            <div style={{ fontSize: 32 }}>⚠️</div>
+            <p className="text-red-400 font-bold">Room connection failed</p>
+            <p className="text-white/50 text-xs text-center max-w-sm">{loadError}</p>
+            <button className="mt-2 px-4 py-2 bg-white/10 rounded-lg text-sm" onClick={() => navigate('/dashboard')}>← Back to Dashboard</button>
+          </>
+        ) : (
+          <>
+            <div className="w-12 h-12 border-4 border-brand-accent/20 border-t-brand-accent rounded-full animate-spin mb-4" />
+            <p className="text-white/60 font-medium tracking-wide">Connecting to room...</p>
+          </>
+        )}
       </div>
     );
   }
