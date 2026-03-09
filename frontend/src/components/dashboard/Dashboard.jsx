@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import Spline from '@splinetool/react-spline';
+
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -159,14 +159,7 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen bg-brand-dark text-white font-sans flex flex-col">
-      { }
-      { }
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
-        <Spline
-          scene="https://prod.spline.design/xwqDYBialmxhQV28/scene.splinecode"
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, #0c0c0f 0%, #1a1a2e 50%, #0c0c0f 100%)' }} />
 
       { }
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
