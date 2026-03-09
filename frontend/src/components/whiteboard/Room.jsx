@@ -102,13 +102,24 @@ export default function Room() {
   }, [showGame]);
 
 
+  // Immediately surface socket connection errors (auth rejection, CORS, etc.)
+  useEffect(() => {
+    if (!socket) return;
+    const handleConnectError = (err) => {
+      setLoadError(`socket connect_error: ${err.message}`);
+      setLoading(false);
+    };
+    socket.on('connect_error', handleConnectError);
+    return () => socket.off('connect_error', handleConnectError);
+  }, [socket]);
+
   // Timeout: if room:joined never fires, show a diagnostic error
   useEffect(() => {
     const t = setTimeout(() => {
       if (loading) {
         const socketId = socket?.id || 'no socket';
-        const connected = socket?.connected;
-        setLoadError(`Timed out. socket=${socketId} connected=${connected} roomId=${roomId}`);
+        const hasToken = !!localStorage.getItem('cc_token');
+        setLoadError(`Timed out. socket.id=${socketId} connected=${socket?.connected} hasToken=${hasToken}`);
         setLoading(false);
       }
     }, 10000);
